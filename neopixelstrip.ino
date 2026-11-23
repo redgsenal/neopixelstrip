@@ -7,8 +7,8 @@
 
 #define LED_PIN     6
 #define BUTTON_PIN  2
-#define NUM_LEDS    60     // change to your strip length
-#define BRIGHTNESS  80     // 0-255, keep <= 120 for 60 LEDs on 5V 2A
+#define NUM_LEDS    120    // 2 strips x 60 LEDs, chained (strip 1 DO -> strip 2 DIN)
+#define BRIGHTNESS  80     // 0-255. 80 = ~2.3 A worst case for 120 LEDs; keep <= ~100 with a 3 A fuse (5V 5A supply)
 #define POT_PIN     A0
 
 // Speed range, as a % of each animation's base interval.

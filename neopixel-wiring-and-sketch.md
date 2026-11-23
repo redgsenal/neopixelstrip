@@ -2,17 +2,18 @@
 
 Files in this folder:
 - `neopixelstrip.ino` - Arduino sketch (open in Arduino IDE; needs the Adafruit NeoPixel library from Library Manager)
-- `neopixel-wiring-diagram-nano-pinout-speed-pot.jpg` - current wiring diagram (Nano pinout, speed knob)
+- `neopixel-wiring-diagram-nano-pinout-speed-pot.jpg` - current wiring diagram (Nano pinout, speed knob, 2 strips, 5V 5A, 3 A fuse)
+- `perfboard-layout.jpg` (top view) / `perfboard-layout-bottom.jpg` (bottom view) / `perfboard-layout.md` - perfboard build layout (24 x 30 holes)
 - `neopixel-wiring-diagram-nano-pinout.jpg` - earlier diagram without the speed knob
 - `neopixel-wiring-diagram.jpg` - first simple block diagram
 
 ## Parts
 - Arduino Nano V3.0
-- WS2812B strip (5 V), 60 LEDs
-- 5 V 2 A power supply (barrel jack or screw-terminal adapter)
-- 1000 uF, 6.3 V+ electrolytic capacitor (watch polarity), placed at the strip end of the rails
+- 2 x WS2812B strip (5 V), 60 LEDs each = 120 LEDs, chained (strip 1 DO -> strip 2 DIN)
+- 5 V 5 A power supply (barrel jack or screw-terminal adapter)
+- 1000 uF, 6.3 V+ electrolytic capacitor (watch polarity), placed right next to the 5V power input (across the supply's 5V and GND, after the fuse)
 - 330 ohm resistor (data line)
-- 2 A fast-blow fuse with holder, or a 1.5-2 A resettable PTC fuse
+- 3 A fast-blow fuse (blade or glass) in an inline holder on the +5V wire, before the board. Not a PTC: a PTC trips at about twice its hold rating, which is too high for a 5 A supply
 - 1 momentary push button (animation select)
 - 1 potentiometer, 10 kohm linear (speed knob). Other values also work (see below)
 - Common ground everywhere
@@ -20,15 +21,17 @@ Files in this folder:
 ## Wiring
 | From | To |
 |---|---|
-| PSU 5V (+) | Fuse, then strip 5V, Nano 5V pin, capacitor (+), pot outer leg 1 |
-| PSU GND (-) | Strip GND, Nano GND, capacitor (-), pot outer leg 2, button leg B |
+| PSU 5V (+) | 3 A fuse, then J1 and the 5V rail: strip 1 5V (J2), strip 2 5V (J3), Nano 5V pin, capacitor (+), pot outer leg 1 |
+| PSU GND (-) | J1 and the GND rail: strip 1 GND (J2), strip 2 GND (J3), Nano GND, capacitor (-), pot outer leg 2, button leg B |
+| Strip 1 DO (data out) | Strip 2 DIN (data only; power to each strip comes from the rails) |
+| J3 (optional) | Strip 2 power terminal. You can skip J3 and put strip 2's 5V and GND wires under J2's screws with strip 1's |
 | Nano D6 | 330 ohm resistor, then strip DIN |
 | Nano D2 | Button leg A |
 | Nano A0 | Pot middle leg (wiper) |
 
 - The button uses INPUT_PULLUP, so no extra resistor is needed.
 - Power the Nano from the same 5 V rail. Do not plug USB in while the PSU powers the 5V pin. Unplug the PSU first when uploading code.
-- Put the 330 ohm resistor close to the strip's first LED, and the capacitor across the strip's 5V and GND.
+- Put the 330 ohm resistor close to the strip's first LED. The capacitor goes next to the 5V power input, across 5V and GND (after the fuse).
 - If turning the knob right makes the animation slower, swap the pot's two outer legs.
 
 ## Potentiometer notes
@@ -37,8 +40,8 @@ Files in this folder:
 - To change the speed range, edit `SPEED_FAST_PCT` (25 = 4x faster) and `SPEED_SLOW_PCT` (280 = 2.8x slower).
 - A log-taper (A-type) pot makes the speed change feel uneven; a linear (B-type) pot is best.
 
-## Power budget (60 LEDs)
-A WS2812B draws up to about 60 mA at full white, so 60 LEDs at full white would need 3.6 A, which is more than the 2 A supply. Brightness is capped at 80/255, giving about 1.1 A worst case. Keep BRIGHTNESS at 120 or below.
+## Power budget (120 LEDs)
+A WS2812B draws up to about 60 mA at full white, so 120 LEDs at full white would need 7.2 A, more than the 5 A supply. Brightness is capped at 80/255, giving about 2.3 A worst case, so a 3 A fuse and the 5 A supply have margin. If you raise BRIGHTNESS, keep it at about 100 or below with the 3 A fuse (a 4 A fuse allows about 120). Both strips are powered from the rails (power injection); only the data wire passes from strip 1 to strip 2. JST-SM connectors are rated about 2 A, so use screw terminals or soldered leads for strip power.
 
 ## Animations (button cycles through them; pot sets speed for all)
 1. Blinking (new random color each blink)
@@ -61,8 +64,8 @@ All animations use the full color range: any hue with random saturation (pastels
 
 #define LED_PIN     6
 #define BUTTON_PIN  2
-#define NUM_LEDS    60     // change to your strip length
-#define BRIGHTNESS  80     // 0-255, keep <= 120 for 60 LEDs on 5V 2A
+#define NUM_LEDS    120    // 2 strips x 60 LEDs, chained (strip 1 DO -> strip 2 DIN)
+#define BRIGHTNESS  80     // 0-255. 80 = ~2.3 A worst case for 120 LEDs; keep <= ~100 with a 3 A fuse (5V 5A supply)
 #define POT_PIN     A0
 
 // Speed range, as a % of each animation's base interval.
