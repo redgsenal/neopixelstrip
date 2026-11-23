@@ -46,13 +46,14 @@ A WS2812B draws up to about 60 mA at full white, so 60 LEDs at full white would 
 3. Random color lights
 4. Fade in/out (new random color each cycle)
 5. Color wave (full rainbow)
+6. Rain (up to 10 drops, each with its own random color and a fading tail; set `RAIN_REVERSE` if drops fall the wrong way)
 
 All animations use the full color range: any hue with random saturation (pastels and vivid colors), gamma corrected. Colors are limited only by the brightness cap.
 
 ## Sketch (Adafruit NeoPixel library)
 ```cpp
 // Neopixel Christmas light - Arduino Nano V3.0 + WS2812B strip
-// Button on D2 cycles through 5 animations.
+// Button on D2 cycles through 6 animations.
 // Potentiometer wiper on A0 controls animation speed (works with any pot value).
 // Requires: Adafruit NeoPixel library (Library Manager).
 
@@ -72,7 +73,7 @@ All animations use the full color range: any hue with random saturation (pastels
 
 Adafruit_NeoPixel strip(NUM_LEDS, LED_PIN, NEO_GRB + NEO_KHZ800);
 
-const uint8_t NUM_MODES = 5;
+const uint8_t NUM_MODES = 6;
 uint8_t mode = 0;
 bool lastBtn = HIGH;
 unsigned long lastPress = 0, lastStep = 0, step = 0;
@@ -159,6 +160,60 @@ void colorWave() {
   strip.show(); step++;
 }
 
+#define MAX_DROPS    10
+#define RAIN_REVERSE false   // true = drops fall from the last LED toward LED 0
+
+struct Drop { int16_t pos; uint8_t speed; uint16_t hue; uint8_t sat; bool on; };
+Drop drops[MAX_DROPS];
+uint8_t rainBuf[NUM_LEDS][3];
+
+// 5: rain, each drop has its own random color and fading tail
+void rain() {
+  if (step == 0) {                       // first run after the button press
+    memset(rainBuf, 0, sizeof(rainBuf));
+    for (uint8_t i = 0; i < MAX_DROPS; i++) drops[i].on = false;
+    step = 1;
+  }
+  if (!due(40)) return;
+
+  // fade every tail a little
+  for (int i = 0; i < NUM_LEDS; i++)
+    for (uint8_t c = 0; c < 3; c++)
+      rainBuf[i][c] = ((uint16_t)rainBuf[i][c] * 190U) >> 8;
+
+  // sometimes start a new drop in a free slot
+  if (random(100) < 15) {
+    for (uint8_t i = 0; i < MAX_DROPS; i++) {
+      if (!drops[i].on) {
+        drops[i].pos   = 0;
+        drops[i].speed = random(6, 17);          // 6..16 sixteenths of an LED per frame
+        drops[i].hue   = random(65536);
+        drops[i].sat   = random(110, 256);
+        drops[i].on    = true;
+        break;
+      }
+    }
+  }
+
+  // move each drop and draw its head
+  for (uint8_t i = 0; i < MAX_DROPS; i++) {
+    if (!drops[i].on) continue;
+    drops[i].pos += drops[i].speed;
+    int p = drops[i].pos >> 4;
+    if (p >= NUM_LEDS) { drops[i].on = false; continue; }
+    uint32_t col = strip.gamma32(strip.ColorHSV(drops[i].hue, drops[i].sat, 255));
+    rainBuf[p][0] = col >> 16;
+    rainBuf[p][1] = col >> 8;
+    rainBuf[p][2] = col;
+  }
+
+  for (int i = 0; i < NUM_LEDS; i++) {
+    int led = RAIN_REVERSE ? NUM_LEDS - 1 - i : i;
+    strip.setPixelColor(led, rainBuf[i][0], rainBuf[i][1], rainBuf[i][2]);
+  }
+  strip.show();
+}
+
 void setup() {
   randomSeed(analogRead(A1));   // A1 is unconnected, so noise gives a different seed each power-up
   pinMode(BUTTON_PIN, INPUT_PULLUP);
@@ -175,6 +230,7 @@ void loop() {
     case 2: randomLights(); break;
     case 3: fadeInOut();    break;
     case 4: colorWave();    break;
+    case 5: rain();         break;
   }
 }
 ```
